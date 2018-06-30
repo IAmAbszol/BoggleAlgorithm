@@ -1,13 +1,58 @@
 import itertools
 import datetime
 import argparse
+from collections import defaultdict
 from copy import deepcopy
 
 
+class Stack:
+    def __init__(self):
+        self.items = []
+
+    # I have changed method name isEmpty to is_empty
+    # because in your code you have used is_empty
+    def is_empty(self):
+        return self.items == []
+
+    def push(self, item):
+        self.items.append(item)
+
+    def pop(self):
+        return self.items.pop()
+
+    def peek(self):
+        return self.items[len(self.items) - 1]
+
+    def size(self):
+        return len(self.items)
+
+    def __str__(self):
+        return "{}".format(self.items)
+
 class Board:
 
-    def __init__(self, board):
+    def __init__(self, board, dict):
         self._board = deepcopy(board)
+        self._dict = dict
+
+    def BFS(self, index, depth, stack, the_list):
+        if the_list is None:
+            the_list = []
+        if stack is None:
+            stack = Stack()
+        if stack.size() >= depth:
+            return
+        if stack.is_empty():
+            stack.push(index)
+            the_list.append(self.getElementByIndex(index))
+        for x in range(len(self._dict[index])):
+            stack.push(self._dict[index][x])
+            the_list.append(the_list[len(the_list) - 1] + self.getElementByIndex(self._dict[index][x]))
+            list_index = len(the_list) - 1
+            self.BFS(self._dict[index][x], depth, stack, the_list)
+            stack.pop()
+            the_list.append(the_list[list_index][:-1])
+        return the_list
 
     def getElementByRowColumn(self, row, col):
         return self._board[row][col]
@@ -82,6 +127,7 @@ class Main:
             return index
 
     def boggle(self):
+        print("Starting Boggle")
         startTime = datetime.datetime.now()
         longestWord = len(max(self.my_words, key=len))
         found_strings = []
@@ -110,6 +156,18 @@ class Main:
 
         self.display(found_strings, self.my_words, startTime)
 
+    def optimal_boggle(self):
+        print("Starting optimal boggle")
+        startTime = datetime.datetime.now()
+        found_strings = []
+        for row in range(len(self.my_board._board)):
+            for col in range(len(self.my_board._board[row])):
+                print("Assessing index ({}) that holds value {}.".format(self.my_board.getIndex(row, col), self.my_board.getElementByRowColumn(row, col)))
+                mylist = self.my_board.BFS(self.my_board.getIndex(row, col), self.my_depth, None, None)
+                found_strings.extend(list(set(mylist)))
+        self.display(found_strings, self.my_words, startTime)
+
+
     def display(self, list, words, startTime):
         timeDiff = datetime.datetime.now() - startTime
         print("Total time taken : {}".format(timeDiff))
@@ -119,11 +177,44 @@ class Main:
                     print("Found : {}, Index : {}".format(words[x], list.index(words[x])))
             except:
                 print("Word : {} not in list.".format(words[x]))
-
+        print("")
 
 # @param board_loc : Refers to board.cnf which contains the closed normal form approach to file structure
 # RETURN : 2-D board
 def parse_board(board_loc):
+
+    def adjacencies(board, index):
+        adjacent = []
+        if (index % len(board[0])) != 0 and index != 0:
+            adjacent.append((index - 1))
+
+        if (index % len(board[0])) != 0 and index != 0 and (index - (1 + len(board[0]))) >= 0:
+            adjacent.append((index - (1 + len(board[0]))))
+
+        if (index - len(board[0])) >= 0:
+            adjacent.append((index - len(board[0])))
+
+        if (index % len(board[0])) != len(board[0]) - 1 and (index - (len(board[0]) - 1)) >= 0:
+            adjacent.append((index - (len(board[0]) - 1)))
+
+        if (index % len(board[0])) != len(board[0]) - 1:
+            adjacent.append((index + 1))
+
+        if (index % len(board[0])) != len(board[0]) - 1 and (
+                index + (1 + len(board[0]))) < (
+                len(board) * len(board[0])):
+            adjacent.append((index + (len(board[0]) + 1)))
+
+        if (index + len(board[0])) < (len(board) * len(board[0])):
+            adjacent.append((index + len(board[0])))
+
+        if (index % len(board[0])) != 0 and (index + (len(board[0]) - 1)) < (
+                len(board) * len(board[0])):
+            adjacent.append((index + (len(board[0]) - 1)))
+
+        return adjacent
+
+    dict = defaultdict(list)
     board = None
     with open(board_loc) as f:
         line = f.readline().rstrip()
@@ -135,16 +226,24 @@ def parse_board(board_loc):
                 while data:
                     if rows <= 0:
                         f.close()
-                        return Board(board)
+                        for row in range(len(board)):
+                            for col in range(len(board[row])):
+                                index = (row * len(board)) + col
+                                dict[index] = adjacencies(board, index)
+                        return Board(board, dict)
                     for index in range(len(data.split(" "))):
                         board[len(board) - rows][index] = data.split(" ")[index]
                     rows -= 1
                     data = f.readline().rstrip()
                 f.close()
-                return Board(board)
+                for row in range(len(board)):
+                    for col in range(len(board[row])):
+                        index = (row * len(board[0])) + col
+                        dict[index] = adjacencies(board, index)
+                return Board(board, dict)
             line = f.readline().rstrip()
         f.close()
-    return Board(board)
+    return Board(board, dict)
 
 # @param words_loc : Refers to words.cnf which contains the closed normal form approach file structure
 # RETURN : list of words contained inside board
@@ -182,4 +281,4 @@ board = parse_board(args["board"])
 words = parse_words(args["words"])
 
 runner = Main(board, words, args["depth"])
-runner.boggle()
+runner.optimal_boggle()
