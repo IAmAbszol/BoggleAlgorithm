@@ -4,6 +4,32 @@ import argparse
 from collections import defaultdict
 from copy import deepcopy
 
+class Node:
+    def __init__(self, value, index):
+        self.Value = value
+        self.Index = index
+
+    def get(self):
+        return self.Value, self.Index
+
+    def __str__(self):
+        return "Node {}, Index {}".format(self.Value, self.Index)
+
+class Queue:
+    def __init__(self):
+        self.items = []
+
+    def isEmpty(self):
+        return self.items == []
+
+    def enqueue(self, item):
+        self.items.insert(0,item)
+
+    def dequeue(self):
+        return self.items.pop()
+
+    def size(self):
+        return len(self.items)
 
 class Stack:
     def __init__(self):
@@ -35,7 +61,38 @@ class Board:
         self._board = deepcopy(board)
         self._dict = dict
 
-    def BFS(self, index, depth, stack, the_list):
+    def BFS(self, index, depth, words):
+        my_list = []
+        node_dict = {}
+        current_depth = 0
+        queue = Queue()
+        queue.enqueue(index)
+        my_list.append(str(index))
+        while current_depth <= depth:
+            temp_queue = Queue()
+            while not queue.isEmpty():
+                index = queue.dequeue()
+                for i in range(len(self._dict[index])):
+                    temp_queue.enqueue(self._dict[index][i])
+                    for x in range(len(my_list)):
+                        if len(my_list[x]) == (current_depth + 1):
+                            if my_list[x].split(" ")[-1] == str(index):
+                                my_list.append(my_list[x] + " " + str(self._dict[index][i]))
+            current_depth += 1
+            for q in range(temp_queue.size()):
+                queue.enqueue(temp_queue.dequeue())
+            print("Queue length {}".format(queue.size()))
+        converted_list = []
+        for z in range(len(my_list)):
+            # probably could use another python one liner addition to convert index to element
+            number_list = [int(s) for s in my_list[z].split() if s.isdigit()]
+            temp_string = ""
+            for e in range(len(number_list)):
+                temp_string = temp_string + self.getElementByIndex(number_list[e])
+            converted_list.append(temp_string)
+        return converted_list
+
+    def DFS(self, index, depth, stack, the_list):
         if the_list is None:
             the_list = []
         if stack is None:
@@ -49,7 +106,7 @@ class Board:
             stack.push(self._dict[index][x])
             the_list.append(the_list[len(the_list) - 1] + self.getElementByIndex(self._dict[index][x]))
             list_index = len(the_list) - 1
-            self.BFS(self._dict[index][x], depth, stack, the_list)
+            self.DFS(self._dict[index][x], depth, stack, the_list)
             stack.pop()
             the_list.append(the_list[list_index][:-1])
         return the_list
@@ -154,30 +211,48 @@ class Main:
                     found_strings.extend(developing_list)
                 found_strings = list(set(found_strings))
 
-        self.display(found_strings, self.my_words, startTime)
+        self.display(None, found_strings, self.my_words, startTime)
 
-    def optimal_boggle(self):
+    def optimal_boggle(self, selection):
+        if selection is None:
+            self.boggle()
+            return
         print("Starting optimal boggle")
         startTime = datetime.datetime.now()
         found_strings = []
         for row in range(len(self.my_board._board)):
             for col in range(len(self.my_board._board[row])):
                 print("Assessing index ({}) that holds value {}.".format(self.my_board.getIndex(row, col), self.my_board.getElementByRowColumn(row, col)))
-                mylist = self.my_board.BFS(self.my_board.getIndex(row, col), self.my_depth, None, None)
-                found_strings.extend(list(set(mylist)))
-        self.display(found_strings, self.my_words, startTime)
+                mylist = []
+                if selection == "dfs":
+                    mylist = self.my_board.DFS(self.my_board.getIndex(row, col), self.my_depth, None, None)
+                elif selection == "bfs":
+                    mylist = self.my_board.BFS(self.my_board.getIndex(row, col), self.my_depth, sift)
+                found_strings.extend(list(set(self.sift(mylist, self.my_words))))
+        self.display(selection, found_strings, self.my_words, startTime)
 
+    def sift(self, list, words):
+        new_list = []
+        for x in range(len(words)):
+            try:
+                if list.index(words[x]) >= 0:
+                    new_list.append(words[x])
+            except:
+                ''''''
+        return new_list
 
-    def display(self, list, words, startTime):
+    def display(self, selection, list, words, startTime):
         timeDiff = datetime.datetime.now() - startTime
-        print("Total time taken : {}".format(timeDiff))
+        passing = 0
+        print("Search Chosen : {}\nTotal time taken : {}".format((selection if selection is not None else "Dirty Boggle"), timeDiff))
         for x in range(len(words)):
             try:
                 if list.index(words[x]) >= 0:
                     print("Found : {}, Index : {}".format(words[x], list.index(words[x])))
+                    passing += 1
             except:
                 print("Word : {} not in list.".format(words[x]))
-        print("")
+        print("Passed {}/{}".format(passing, len(words)))
 
 # @param board_loc : Refers to board.cnf which contains the closed normal form approach to file structure
 # RETURN : 2-D board
@@ -274,11 +349,22 @@ def parse_words(words_loc):
 parse = argparse.ArgumentParser()
 parse.add_argument("-b", "--board", required=True, help="path to board.")
 parse.add_argument("-w", "--words", required=True, help="path to words.")
-parse.add_argument("-d", "--depth", type=int, required=True, help="length of developing word.")
+parse.add_argument("-d", "--depth", type=int, help="length of developing word.")
+parse.add_argument("-bfs", "--breadthfirstsearch", action="store_true", help="enable Breadth First Search (BFS).")
+parse.add_argument("-dfs", "--depthfirstsearch", action="store_true", help="enable Depth First Search (DFS).")
 args = vars(parse.parse_args())
 
 board = parse_board(args["board"])
 words = parse_words(args["words"])
 
 runner = Main(board, words, args["depth"])
-runner.optimal_boggle()
+#if args.bfs is not None:
+#    runner.optimal_boggle("bfs")
+#elif args.dfs is not None:
+#    runner.optimal_boggle("dfs")
+#else:
+#    runner.optimal_boggle(None)
+
+runner.optimal_boggle("dfs")
+runner.optimal_boggle("bfs")
+
