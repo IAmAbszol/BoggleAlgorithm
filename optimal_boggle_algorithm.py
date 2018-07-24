@@ -358,12 +358,12 @@ board = parse_board(args["board"])
 words = parse_words(args["words"])
 
 runner = Main(board, words, args["depth"])
-#if args.bfs is not None:
-#    runner.optimal_boggle("bfs")
-#elif args.dfs is not None:
-#    runner.optimal_boggle("dfs")
-#else:
-#    runner.optimal_boggle(None)
+if args["bfs"]:
+    runner.optimal_boggle("bfs")
+elif args["dfs"]:
+    runner.optimal_boggle("dfs")
+else:
+    runner.optimal_boggle(None)
 
 runner.optimal_boggle("dfs")
 runner.optimal_boggle("bfs")
